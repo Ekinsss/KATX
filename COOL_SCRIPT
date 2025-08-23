@@ -1,0 +1,93 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local currentTimeOnServer = 0
+local GuiService = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+PlaceId, JobId = game.PlaceId, game.JobId
+local VoteMenu = game:GetService("Players").LocalPlayer.PlayerGui.GameUI.Interface.VotePanel
+
+local function getCharacter(p)
+    return p.Character or p.CharacterAdded:Wait()
+end
+
+local function antivote()
+    if VoteMenu.Visible == true then
+    local args = {
+	"VOTE",
+	2
+}
+game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("Misk"):WaitForChild("ToggleVoteKick"):FireServer(unpack(args))
+end
+end
+
+local function findTargetPlayer()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name == getgenv().PlayerName then
+            return p
+        end
+    end
+    return nil
+end
+
+local function rejoin()
+    if #Players:GetPlayers() <= 1 then
+        TeleportService:Teleport(PlaceId)
+    else
+        TeleportService:TeleportToPlaceInstance(PlaceId, JobId, player)
+    end
+end
+
+local function teleportToTarget()
+    local targetPlayer = findTargetPlayer()
+    if not targetPlayer then
+        return
+    end
+
+    local targetChar = getCharacter(targetPlayer)
+    local targetRoot = targetChar:WaitForChild("HumanoidRootPart")
+    local localChar = getCharacter(player)
+    local localRoot = localChar:WaitForChild("HumanoidRootPart")
+    localRoot.CFrame = targetRoot.CFrame
+end
+
+local function onCharacterAdded(newChar)
+    newChar:WaitForChild("Humanoid").Died:Connect(function()
+        if getgenv().isenabled then
+            wait(3)
+            teleportToTarget()
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+---------------------------------------------------------
+
+if getgenv().isenabled and player.Name ~= getgenv().PlayerName then
+RunService:Set3dRenderingEnabled(false)
+workspace.WorldIgnore.Projectiles:Destroy()
+end
+
+
+RunService.Heartbeat:Connect(function()
+    antivote()
+    if getgenv().isenabled and player.Name ~= getgenv().PlayerName then
+        teleportToTarget()
+    end
+    if getgenv().isenabled and currentTimeOnServer >= getgenv().RejoinTime then
+        rejoin()
+    end
+    GuiService.ErrorMessageChanged:Connect(function()
+    rejoin()
+    end)
+end)
+
+while true do
+    print(currentTimeOnServer)
+    currentTimeOnServer = currentTimeOnServer + 1
+    wait(1)
+end
